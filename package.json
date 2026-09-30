@@ -3,12 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Boto-aparelhagem de chapa rebitada: widget three.js com textura assada estilo PS2",
+  "description": "Boto-aparelhagem de chapa rebitada: modelo low-poly e textura estilo PS2, widget three.js",
   "scripts": {
     "start": "node server.mjs",
     "decimate": "./scripts/decimate.sh",
     "info": "node scripts/glbinfo.mjs",
-    "bake": "./scripts/decimate.sh 0.1 0.05 boto.glb build_mid.glb && .venv/bin/python tools/bake.py 1024"
+    "bake": ".venv/bin/python tools/modelo.py"
   },
   "dependencies": {
     "three": "^0.180.0"

@@ -3,8 +3,8 @@
 // (arrastar, rolar ou setas). Os ajustes ficam guardados no botao "Adjustments":
 // abrem na lateral no desktop e por baixo no celular.
 //
-// Modelo e texturas saem do tools/bake.py (public/). A dorsal nao existe na malha:
-// e extrudada aqui a partir de public/fin.json.
+// Modelo e textura saem do tools/modelo.py (public/boto2.glb, boto2_color.jpg,
+// led.jpg), construidos a partir das vistas em ref/v2/.
 //
 // Parametros de URL, pra configurar pelo Embed do Framer:
 //   ?bg=transparent|black|white   fundo (default transparent)
@@ -47,7 +47,7 @@ const estado = {
 const PREENCHIMENTO = 0.9;
 
 const P = {
-  luzKey: 1.5, luzRim: 1.1,
+  luzKey: 2.2, luzRim: 1.2,
   bloomForca: estado.brilho, bloomRaio: 0.3, bloomThreshold: 0.85, alphaBrilho: 1.0,
 };
 
@@ -62,7 +62,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(30, 1, 0.01, 100);
 criarAmbiente(renderer, scene, P);
-scene.add(new THREE.HemisphereLight(0xfff2f6, 0x3a2a33, 0.7));
+scene.add(new THREE.HemisphereLight(0xfff2f6, 0x3a2a33, 0.35));
 
 // pivo: gira em torno do centro da esfera envolvente; o modelo vai deslocado dentro
 const pivo = new THREE.Group();
@@ -263,39 +263,31 @@ function loop(agora) {
 async function carregar() {
   const base = new URL('../public/', import.meta.url);
   const tl = new THREE.TextureLoader();
-  const [gltf, mapa, brilhoMap, mapaFin, fin] = await Promise.all([
-    new GLTFLoader().loadAsync(new URL('boto.glb', base).href),
-    tl.loadAsync(new URL('boto_color.jpg', base).href),
-    tl.loadAsync(new URL('boto_glow.jpg', base).href),
-    tl.loadAsync(new URL('boto_fin.jpg', base).href),
-    fetch(new URL('fin.json', base)).then((r) => r.json()),
+  const [gltf, mapa, led] = await Promise.all([
+    new GLTFLoader().loadAsync(new URL('boto2.glb', base).href),
+    tl.loadAsync(new URL('boto2_color.jpg', base).href),
+    tl.loadAsync(new URL('led.jpg', base).href),
   ]);
   const aniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
-  for (const t of [mapa, brilhoMap, mapaFin]) { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = aniso; }
+  for (const t of [mapa, led]) { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = aniso; }
 
-  // corpo: textura "PS2" assada + mapa de emissao (bulbos, olhos, boca, LEDs)
-  const corpo = gltf.scene.getObjectByProperty('type', 'Mesh');
-  corpo.material = new THREE.MeshStandardMaterial({
-    map: mapa, emissiveMap: brilhoMap, emissive: 0xffffff, emissiveIntensity: 1.7,
-    metalness: 0.35, roughness: 0.55,
+  // Malhas do tools/modelo.py, por nome. As chapas levam a textura "PS2" assada;
+  // as pecas de luz sao cor por vertice multiplicada acima de 1 - e isso (e so
+  // isso) que passa do threshold do bloom.
+  const aceso = (k) => new THREE.MeshBasicMaterial({ vertexColors: true, color: new THREE.Color(k, k, k), side: THREE.DoubleSide });
+  const MATERIAIS = {
+    chapas: new THREE.MeshStandardMaterial({ map: mapa, metalness: 0.35, roughness: 0.55, flatShading: true, side: THREE.DoubleSide }),
+    dentes: new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0.1, roughness: 0.45, flatShading: true, side: THREE.DoubleSide }),
+    boca: aceso(1.35),
+    bulbos: aceso(1.75),
+    olhos: aceso(1.9),
+    led: new THREE.MeshBasicMaterial({ map: led, color: new THREE.Color(2.2, 2.2, 2.2), side: THREE.DoubleSide }),
+  };
+  gltf.scene.traverse((o) => {
+    if (!o.isMesh) return;
+    o.material = MATERIAIS[o.name] ?? MATERIAIS.chapas;
   });
-  modelo.add(corpo);
-
-  // dorsal: contorno extrudado no plano XY, centrado em z. A UV das tampas e a
-  // propria coordenada (x, y) do contorno; repeat/offset levam isso pra caixa
-  // que a textura cobre.
-  const forma = new THREE.Shape(fin.contorno.map(([x, y]) => new THREE.Vector2(x, y)));
-  const ESP = 0.026;
-  const geoFin = new THREE.ExtrudeGeometry(forma, {
-    depth: ESP, bevelEnabled: true, bevelThickness: 0.006, bevelSize: 0.006, bevelSegments: 1, curveSegments: 1,
-  });
-  geoFin.translate(0, 0, -ESP / 2);
-  const [x0, y0, x1, y1] = fin.caixa;
-  mapaFin.repeat.set(1 / (x1 - x0), 1 / (y1 - y0));
-  mapaFin.offset.set(-x0 / (x1 - x0), -y0 / (y1 - y0));
-  const matFin = new THREE.MeshStandardMaterial({ map: mapaFin, metalness: 0.4, roughness: 0.5 });
-  const matBorda = new THREE.MeshStandardMaterial({ color: 0x3a3536, metalness: 0.5, roughness: 0.5 });
-  modelo.add(new THREE.Mesh(geoFin, [matFin, matBorda]));
+  modelo.add(gltf.scene);
 
   // esfera envolvente de tudo: o pivo gira em torno do centro dela
   const caixa = new THREE.Box3().setFromObject(modelo);

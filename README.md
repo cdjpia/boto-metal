@@ -39,34 +39,30 @@ widget don't scroll the page.
 | `hint` | `?hint=0` | skip the rotate animation |
 | `ui` | `?ui=0` | no panel or button |
 
-## How the texture is made
+## How the model is made
 
-`boto.glb` has no UVs and no material, and its pose doesn't match the reference
-renders in `ref/` (jaw, belly and tail differ), so the reference images can't be
-projected directly. `tools/bake.py` paints the texture instead:
+`tools/modelo.py` **builds** the boto from four generated reference views (side,
+front, bottom, three-quarter — kept locally in `ref/v2/`, not in the repo). The
+side and bottom views share one scale (~740 px per unit, length 2), so body
+heights and widths were read off them on a coordinate grid:
 
-1. `build_mid.glb` (~18k triangles) is unwrapped with xatlas.
-2. Every texel becomes a 3D point; plates are the triangles of the dual of a
-   Poisson-disk Voronoi on the surface — straight seams, like the reference's facets.
-3. Each plate gets its color by region (steel head, rostrum, tail; magenta body
-   with a few steel plates), a grain patch cut automatically from seam-free areas
-   of the reference images, a dark seam, a bevel and a row of rivets.
-4. Special regions per texel: copper spine, bulbs (found as peaks along the spine),
-   eyes, mouth and teeth (teeth = surface relief peaks), fin LED grids.
-5. A second map holds the emission (bulbs, eyes, mouth, LEDs) that drives the bloom.
-
-The dorsal fin isn't in the mesh: it's a separate outline (`public/fin.json`) with
-its own baked texture, extruded in the widget.
-
-The reference images (`ref/LEFT.png`, `RIGHT.png`, `FRONT.png`, `BACK.png`) aren't
-in the repo; the bake needs them locally for the palette and grain.
+1. Body: rings of 10 facets lofted through measured stations, slightly jittered
+   so the seams don't form a grid. Each facet (quad or triangle) is one plate.
+2. Open jaws, cone teeth, glowing mouth walls, octagonal eyes, steel spine band
+   with 11 bulbs, dorsal fin, twisted pectoral fins with LED panels (the reference
+   shows their LED face from the side, front *and* bottom), belly fins, and
+   angled tail flukes — all as flat extruded plates.
+3. Each plate's color (magenta or steel) is sampled from the view that sees it
+   best; grain patches are cut from seam-free areas of the same views.
+4. Texture: xatlas unwrap, then per texel a dark seam, a bevel and a row of
+   rivets along every plate edge — a 1024 px atlas for the PS2 look.
+5. Lights (mouth, bulbs, eyes, LEDs) are separate meshes with colors above 1.0,
+   which is what the bloom picks up.
 
 ```bash
-python3 -m venv .venv && .venv/bin/pip install xatlas numpy scipy pillow matplotlib
-npm install
-npm run bake        # -> public/boto.glb, boto_color.jpg, boto_glow.jpg, boto_fin.jpg, fin.json
+python3 -m venv .venv && .venv/bin/pip install xatlas numpy scipy pillow
+npm run bake        # -> public/boto2.glb, boto2_color.jpg, led.jpg
 npm start           # http://localhost:5174
 ```
 
-`tools/` also has the debug pages used to map the anatomy (`shot.html` renders
-orthographic views with a coordinate grid, `preview.html` the textured model).
+`tools/bake.py` is the earlier version, which painted the original `boto.glb`.
