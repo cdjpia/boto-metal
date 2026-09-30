@@ -8,7 +8,7 @@
     "start": "node server.mjs",
     "decimate": "./scripts/decimate.sh",
     "info": "node scripts/glbinfo.mjs",
-    "bake": ".venv/bin/python tools/modelo.py"
+    "bake": ".venv/bin/python tools/casco.py"
   },
   "dependencies": {
     "three": "^0.180.0"

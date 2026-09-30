@@ -41,28 +41,30 @@ widget don't scroll the page.
 
 ## How the model is made
 
-`tools/modelo.py` **builds** the boto from four generated reference views (side,
-front, bottom, three-quarter — kept locally in `ref/v2/`, not in the repo). The
-side and bottom views share one scale (~740 px per unit, length 2), so body
-heights and widths were read off them on a coordinate grid:
+`tools/casco.py` builds the boto **from the reference views themselves** (side,
+front and bottom — kept locally in `ref/v2/`, not in the repo):
 
-1. Body: rings of 10 facets lofted through measured stations, slightly jittered
-   so the seams don't form a grid. Each facet (quad or triangle) is one plate.
-2. Open jaws, cone teeth, glowing mouth walls, octagonal eyes, steel spine band
-   with 11 bulbs, dorsal fin, twisted pectoral fins with LED panels (the reference
-   shows their LED face from the side, front *and* bottom), belly fins, and
-   angled tail flukes — all as flat extruded plates.
-3. Each plate's color (magenta or steel) is sampled from the view that sees it
-   best; grain patches are cut from seam-free areas of the same views.
-4. Texture: xatlas unwrap, then per texel a dark seam, a bevel and a row of
-   rivets along every plate edge — a 1024 px atlas for the PS2 look.
-5. Lights (mouth, bulbs, eyes, LEDs) are separate meshes with colors above 1.0,
-   which is what the bloom picks up.
+1. **Shape:** the three silhouettes are intersected in a voxel grid (a visual
+   hull), so the model matches each view's outline by construction — open jaws
+   with teeth, dorsal, bulb crest, twisted fins, flukes. The gaps no view can
+   separate (under the belly between the fins) are carved by hand.
+2. **Low-poly:** marching cubes, light smoothing, then simplified to ~6,000
+   triangles.
+3. **Texture:** after a UV unwrap, every texel takes its color from the view that
+   sees it most head-on — and only if that view actually sees it (a depth test
+   against the voxels keeps a fin from being painted onto the body behind it).
+   Hidden spots inherit the nearest visible color. The result is saved at
+   **512 px**: plates, rivets, colors and lights copied from the reference, with
+   the lighting pre-baked — rendered almost unlit, PS2-style.
+4. **Glow:** orange/red and blue pixels (bulbs, eyes, mouth, LED fins) form an
+   emission map that drives the bloom; the magenta plates never glow.
 
 ```bash
-python3 -m venv .venv && .venv/bin/pip install xatlas numpy scipy pillow
-npm run bake        # -> public/boto2.glb, boto2_color.jpg, led.jpg
+python3 -m venv .venv && .venv/bin/pip install xatlas numpy scipy pillow scikit-image
+npm install
+npm run bake        # -> public/boto3.glb, boto3_color.jpg, boto3_glow.jpg
 npm start           # http://localhost:5174
 ```
 
-`tools/bake.py` is the earlier version, which painted the original `boto.glb`.
+`tools/bake.py` and `tools/modelo.py` are earlier attempts (repainting the
+original mesh; modeling by hand from measurements).

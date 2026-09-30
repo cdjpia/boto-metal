@@ -3,8 +3,9 @@
 // (arrastar, rolar ou setas). Os ajustes ficam guardados no botao "Adjustments":
 // abrem na lateral no desktop e por baixo no celular.
 //
-// Modelo e textura saem do tools/modelo.py (public/boto2.glb, boto2_color.jpg,
-// led.jpg), construidos a partir das vistas em ref/v2/.
+// Modelo e textura saem do tools/casco.py (public/boto3.glb, boto3_color.jpg,
+// boto3_glow.jpg): casco visual das vistas em ref/v2/ com as proprias vistas
+// projetadas como textura.
 //
 // Parametros de URL, pra configurar pelo Embed do Framer:
 //   ?bg=transparent|black|white   fundo (default transparent)
@@ -47,7 +48,7 @@ const estado = {
 const PREENCHIMENTO = 0.9;
 
 const P = {
-  luzKey: 2.2, luzRim: 1.2,
+  luzKey: 0.45, luzRim: 0.2,
   bloomForca: estado.brilho, bloomRaio: 0.3, bloomThreshold: 0.85, alphaBrilho: 1.0,
 };
 
@@ -56,13 +57,14 @@ const P = {
 const canvas = $('#view');
 const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'high-performance' });
 renderer.setClearColor(0x000000, 0);
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMapping = THREE.NoToneMapping; // cores da textura como vieram da referencia
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(30, 1, 0.01, 100);
 criarAmbiente(renderer, scene, P);
-scene.add(new THREE.HemisphereLight(0xfff2f6, 0x3a2a33, 0.35));
+// luz quase so ambiente: a textura ja vem iluminada (textura "pre-iluminada", como no PS2)
+scene.add(new THREE.AmbientLight(0xffffff, 2.3));
 
 // pivo: gira em torno do centro da esfera envolvente; o modelo vai deslocado dentro
 const pivo = new THREE.Group();
@@ -263,31 +265,21 @@ function loop(agora) {
 async function carregar() {
   const base = new URL('../public/', import.meta.url);
   const tl = new THREE.TextureLoader();
-  const [gltf, mapa, led] = await Promise.all([
-    new GLTFLoader().loadAsync(new URL('boto2.glb', base).href),
-    tl.loadAsync(new URL('boto2_color.jpg', base).href),
-    tl.loadAsync(new URL('led.jpg', base).href),
+  const [gltf, mapa, brilhoMap] = await Promise.all([
+    new GLTFLoader().loadAsync(new URL('boto3.glb', base).href),
+    tl.loadAsync(new URL('boto3_color.jpg', base).href),
+    tl.loadAsync(new URL('boto3_glow.jpg', base).href),
   ]);
-  const aniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
-  for (const t of [mapa, led]) { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = aniso; }
+  for (const t of [mapa, brilhoMap]) { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; }
 
-  // Malhas do tools/modelo.py, por nome. As chapas levam a textura "PS2" assada;
-  // as pecas de luz sao cor por vertice multiplicada acima de 1 - e isso (e so
-  // isso) que passa do threshold do bloom.
-  const aceso = (k) => new THREE.MeshBasicMaterial({ vertexColors: true, color: new THREE.Color(k, k, k), side: THREE.DoubleSide });
-  const MATERIAIS = {
-    chapas: new THREE.MeshStandardMaterial({ map: mapa, metalness: 0.35, roughness: 0.55, flatShading: true, side: THREE.DoubleSide }),
-    dentes: new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0.1, roughness: 0.45, flatShading: true, side: THREE.DoubleSide }),
-    boca: aceso(1.35),
-    bulbos: aceso(1.75),
-    olhos: aceso(1.9),
-    led: new THREE.MeshBasicMaterial({ map: led, color: new THREE.Color(2.2, 2.2, 2.2), side: THREE.DoubleSide }),
-  };
-  gltf.scene.traverse((o) => {
-    if (!o.isMesh) return;
-    o.material = MATERIAIS[o.name] ?? MATERIAIS.chapas;
+  // Textura projetada das vistas de referencia (tools/casco.py): ela ja traz a luz
+  // e o brilho metalico pintados, entao o material quase nao acende nada por cima -
+  // como num jogo de PS2. O mapa de emissao (bulbos, olhos, boca, LED) alimenta o bloom.
+  const corpo = gltf.scene.getObjectByProperty('type', 'Mesh');
+  corpo.material = new THREE.MeshLambertMaterial({
+    map: mapa, emissiveMap: brilhoMap, emissive: 0xffffff, emissiveIntensity: 1.4,
   });
-  modelo.add(gltf.scene);
+  modelo.add(corpo);
 
   // esfera envolvente de tudo: o pivo gira em torno do centro dela
   const caixa = new THREE.Box3().setFromObject(modelo);

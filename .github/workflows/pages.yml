@@ -1,5 +1,5 @@
 # Publica o widget: index.html, os modulos de src/ e os assets assados em public/
-# (o tools/modelo.py roda local - precisa do .venv com xatlas; o site so serve o resultado).
+# (o tools/casco.py roda local - precisa do .venv com xatlas; o site so serve o resultado).
 name: pages
 
 on:
@@ -29,7 +29,7 @@ jobs:
           mkdir -p _site/src _site/public
           cp index.html _site/
           cp src/widget.js src/pipeline.js _site/src/
-          cp public/boto2.glb public/boto2_color.jpg public/led.jpg _site/public/
+          cp public/boto3.glb public/boto3_color.jpg public/boto3_glow.jpg _site/public/
           touch _site/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
