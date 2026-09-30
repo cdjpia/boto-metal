@@ -1,7 +1,7 @@
 node_modules
 .venv/
 shots/
-build_*.glb
+build_*
 public/*.png
 .server.log
 .claude/
