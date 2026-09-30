@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>preview</title>
+<script type="importmap">
+{ "imports": { "three": "../node_modules/three/build/three.module.js", "three/addons/": "../node_modules/three/examples/jsm/" } }
+</script>
+<style>html,body{margin:0;background:#000}</style>
+</head>
+<body>
+<script type="module">
+// Modelo texturizado (public/) em varias vistas de perspectiva, sobre cinza medio
+// como as imagens de referencia. Grava shots/prev_<vista>.png.
+//   ?views=left,front,q1,q2,top,back   ?glow=1
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+const q = new URLSearchParams(location.search);
+const W = 1200, H = 700;
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(W, H, false);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.append(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x777777);
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+const key = new THREE.DirectionalLight(0xfff4ea, 1.4); key.position.set(-2, 3, 3); scene.add(key);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 0.6));
+
+const tl = new THREE.TextureLoader();
+const v = `?v=${Date.now()}`;
+const [mapa, brilho] = await Promise.all([tl.loadAsync('../public/boto_color.png' + v), tl.loadAsync('../public/boto_glow.png' + v)]);
+mapa.colorSpace = THREE.SRGBColorSpace; brilho.colorSpace = THREE.SRGBColorSpace;
+mapa.anisotropy = 8;
+const g = await new GLTFLoader().loadAsync('../public/boto.glb' + v);
+const mesh = g.scene.getObjectByProperty('type', 'Mesh');
+mesh.material = new THREE.MeshStandardMaterial({
+  map: mapa, emissiveMap: brilho, emissive: 0xffffff, emissiveIntensity: q.get('glow') === '0' ? 0 : 2.2,
+  metalness: 0.35, roughness: 0.55,
+});
+scene.add(mesh);
+
+const camera = new THREE.PerspectiveCamera(26, W / H, 0.01, 50);
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+composer.addPass(new UnrealBloomPass(new THREE.Vector2(W, H), 0.5, 0.3, 0.85));
+composer.addPass(new OutputPass());
+
+const VISTAS = {
+  left: [0, 0.1, 4.4], right: [0, 0.1, -4.4], front: [-4.2, 0.3, 0], back: [4.2, 0.3, 0],
+  q1: [-2.8, 0.9, 3.2], q2: [2.6, 1.0, 3.0], top: [0.001, 4.5, 0.4], low: [-2.5, -1.4, 3],
+};
+for (const nome of (q.get('views') || 'left,front,q1,q2').split(',')) {
+  camera.position.set(...VISTAS[nome]);
+  camera.lookAt(0, 0, 0);
+  composer.render();
+  const blob = await new Promise((r) => renderer.domElement.toBlob(r, 'image/png'));
+  await fetch(`/api/shot?name=prev_${nome}.png`, { method: 'POST', body: blob });
+}
+document.title = 'pronto';
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+node_modules
+.venv/
+shots/
+build_*.glb
+public/*.png
+.server.log
+.claude/
+.DS_Store
+ref/

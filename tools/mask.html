@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>mask</title>
+<script type="importmap">
+{ "imports": { "three": "../node_modules/three/build/three.module.js", "three/addons/": "../node_modules/three/examples/jsm/" } }
+</script>
+<style>html,body{margin:0;background:#000}</style>
+</head>
+<body>
+<script type="module">
+// Silhueta ortografica EXATA da malha em cada vista, enquadrada na bbox da malha
+// (pixel 0 = coordenada minima, ultimo pixel = maxima). Grava shots/mask_<vista>.png.
+// O calibrate.py casa essas mascaras com o alpha das imagens de referencia.
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const ESCALA = 600; // pixels por unidade
+const VISTAS = {
+  // camera, eixo u (direita da imagem), eixo v (cima da imagem)
+  LEFT:  { pos: [0, 0, 5],  u: [1, 0, 0],  v: [0, 1, 0] },
+  RIGHT: { pos: [0, 0, -5], u: [-1, 0, 0], v: [0, 1, 0] },
+  FRONT: { pos: [-5, 0, 0], u: [0, 0, 1],  v: [0, 1, 0] },
+  BACK:  { pos: [5, 0, 0],  u: [0, 0, -1], v: [0, 1, 0] },
+  TOP:   { pos: [0, 5, 0],  u: [0, 0, 1],  v: [-1, 0, 0] },
+};
+
+new GLTFLoader().load('../boto.glb', async (g) => {
+  const geo = g.scene.getObjectByProperty('type', 'Mesh').geometry;
+  const pos = geo.attributes.position;
+  const renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
+  document.body.append(renderer.domElement);
+  const scene = new THREE.Scene();
+  scene.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide })));
+  const info = {};
+
+  for (const [nome, v] of Object.entries(VISTAS)) {
+    const U = new THREE.Vector3(...v.u), V = new THREE.Vector3(...v.v);
+    let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+    const p = new THREE.Vector3();
+    for (let i = 0; i < pos.count; i++) {
+      p.fromBufferAttribute(pos, i);
+      const a = p.dot(U), b = p.dot(V);
+      u0 = Math.min(u0, a); u1 = Math.max(u1, a); v0 = Math.min(v0, b); v1 = Math.max(v1, b);
+    }
+    const w = Math.round((u1 - u0) * ESCALA), h = Math.round((v1 - v0) * ESCALA);
+    renderer.setSize(w, h, false);
+    const cam = new THREE.OrthographicCamera(u0, u1, v1, v0, 0.01, 20);
+    cam.position.set(...v.pos);
+    cam.up.copy(V);
+    cam.lookAt(0, 0, 0);
+    // lookAt centra na origem; as bordas da camera ja estao em coordenadas u/v
+    // absolutas porque a origem projeta em (0,0)
+    cam.updateProjectionMatrix();
+    renderer.render(scene, cam);
+    const blob = await new Promise((r) => renderer.domElement.toBlob(r, 'image/png'));
+    await fetch(`/api/shot?name=mask_${nome}.png`, { method: 'POST', body: blob });
+    info[nome] = { u0, u1, v0, v1, w, h };
+  }
+  await fetch('/api/shot?name=mask_info.png', { method: 'POST', body: JSON.stringify(info) });
+  document.title = 'pronto';
+  window.info = info;
+});
+</script>
+</body>
+</html>

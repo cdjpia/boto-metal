@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>shot</title>
+<script type="importmap">
+{ "imports": { "three": "../node_modules/three/build/three.module.js", "three/addons/": "../node_modules/three/examples/jsm/" } }
+</script>
+<style>html,body{margin:0;background:#000}</style>
+</head>
+<body>
+<script type="module">
+// Vistas ortograficas iluminadas com grade de coordenadas (a cada 0.1), gravadas
+// em shots/grid_<vista>.png. Serve pra ler a anatomia em coordenadas do modelo.
+//   ?file=boto.glb   ?views=LEFT,FRONT,TOP,BOTTOM,BACK   ?escala=700
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const q = new URLSearchParams(location.search);
+const ESCALA = parseFloat(q.get('escala') || '700');
+const VISTAS = {
+  LEFT:   { pos: [0, 0, 5],  u: [1, 0, 0],  v: [0, 1, 0], nu: 'x', nv: 'y' },
+  RIGHT:  { pos: [0, 0, -5], u: [-1, 0, 0], v: [0, 1, 0], nu: '-x', nv: 'y' },
+  FRONT:  { pos: [-5, 0, 0], u: [0, 0, 1],  v: [0, 1, 0], nu: 'z', nv: 'y' },
+  BACK:   { pos: [5, 0, 0],  u: [0, 0, -1], v: [0, 1, 0], nu: '-z', nv: 'y' },
+  TOP:    { pos: [0, 5, 0],  u: [1, 0, 0],  v: [0, 0, -1], nu: 'x', nv: '-z' },
+  BOTTOM: { pos: [0, -5, 0], u: [1, 0, 0],  v: [0, 0, 1], nu: 'x', nv: 'z' },
+};
+const M = 60; // margem em px pros rotulos
+
+new GLTFLoader().load('../' + (q.get('file') || 'boto.glb'), async (g) => {
+  let geo = g.scene.getObjectByProperty('type', 'Mesh').geometry;
+  const temCor = !!geo.attributes.color;
+  geo.computeVertexNormals();
+  const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, alpha: true });
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  const scene = new THREE.Scene();
+  scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+  const l = new THREE.DirectionalLight(0xffffff, 1.2); l.position.set(-1, 2, 2); scene.add(l);
+  const mat = geo.attributes.uv && window.MAPA
+    ? new THREE.MeshStandardMaterial({ map: window.MAPA })
+    : new THREE.MeshStandardMaterial({ color: 0xbbbbbb, roughness: .6, metalness: .1, vertexColors: temCor });
+  scene.add(new THREE.Mesh(geo, mat));
+
+  const out = document.createElement('canvas');
+  const ctx = out.getContext('2d');
+  for (const nome of (q.get('views') || 'LEFT,FRONT,TOP,BOTTOM').split(',')) {
+    const v = VISTAS[nome];
+    const U = new THREE.Vector3(...v.u), V = new THREE.Vector3(...v.v);
+    const u0 = -1.05, u1 = 1.05;
+    const ext = nome === 'FRONT' || nome === 'BACK' ? [-0.7, 0.7] : [-1.05, 1.05];
+    const [a0, a1] = nome === 'FRONT' || nome === 'BACK' ? ext : [u0, u1];
+    const [b0, b1] = nome === 'TOP' || nome === 'BOTTOM' ? [-0.7, 0.7] : [-0.5, 0.5];
+    const w = Math.round((a1 - a0) * ESCALA), h = Math.round((b1 - b0) * ESCALA);
+    renderer.setSize(w, h, false);
+    const cam = new THREE.OrthographicCamera(a0, a1, b1, b0, 0.01, 20);
+    cam.position.set(...v.pos); cam.up.copy(V); cam.lookAt(0, 0, 0); cam.updateProjectionMatrix();
+    renderer.setClearColor(0x000000, 0);
+    renderer.render(scene, cam);
+
+    out.width = w + M; out.height = h + M;
+    ctx.fillStyle = '#20242a'; ctx.fillRect(0, 0, out.width, out.height);
+    ctx.drawImage(renderer.domElement, M, 0);
+    ctx.font = '13px monospace';
+    for (let a = Math.ceil(a0 * 10) / 10; a <= a1 + 1e-6; a += 0.1) {
+      const x = M + (a - a0) * ESCALA, forte = Math.abs(Math.round(a * 10) % 5) === 0;
+      ctx.strokeStyle = forte ? 'rgba(255,80,80,.55)' : 'rgba(0,255,255,.22)';
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.fillText(a.toFixed(1), x - 12, h + 18);
+    }
+    for (let b = Math.ceil(b0 * 10) / 10; b <= b1 + 1e-6; b += 0.1) {
+      const y = (b1 - b) * ESCALA, forte = Math.abs(Math.round(b * 10) % 5) === 0;
+      ctx.strokeStyle = forte ? 'rgba(255,80,80,.55)' : 'rgba(0,255,255,.22)';
+      ctx.beginPath(); ctx.moveTo(M, y); ctx.lineTo(M + w, y); ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.fillText(b.toFixed(1), 4, y + 4);
+    }
+    ctx.fillStyle = '#ff0'; ctx.fillText(`${nome}  u=${v.nu}  v=${v.nv}`, M + 8, h + 44);
+    const blob = await new Promise((r) => out.toBlob(r, 'image/png'));
+    await fetch(`/api/shot?name=grid_${nome}.png`, { method: 'POST', body: blob });
+  }
+  document.title = 'pronto';
+});
+</script>
+</body>
+</html>

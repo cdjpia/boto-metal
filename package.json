@@ -1,0 +1,19 @@
+{
+  "name": "boto-metal",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Boto-aparelhagem de chapa rebitada: widget three.js com textura assada estilo PS2",
+  "scripts": {
+    "start": "node server.mjs",
+    "decimate": "./scripts/decimate.sh",
+    "info": "node scripts/glbinfo.mjs",
+    "bake": "./scripts/decimate.sh 0.1 0.05 boto.glb build_mid.glb && .venv/bin/python tools/bake.py 1024"
+  },
+  "dependencies": {
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "@gltf-transform/cli": "^4.4.2"
+  }
+}

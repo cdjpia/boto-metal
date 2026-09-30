@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>inspect</title>
+<script type="importmap">
+{ "imports": { "three": "../node_modules/three/build/three.module.js", "three/addons/": "../node_modules/three/examples/jsm/" } }
+</script>
+<style>html,body{margin:0;background:#777;overflow:hidden}canvas{display:block}</style>
+</head>
+<body>
+<script type="module">
+// Pagina de debug: a malha crua em 4 vistas ortograficas, pra mapear anatomia.
+// ?file=boto.glb  ?mode=normal|lambert  ?views=left,front,top,q
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const q = new URLSearchParams(location.search);
+const W = innerWidth, H = innerHeight;
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(W, H);
+renderer.setScissorTest(true);
+document.body.append(renderer.domElement);
+const scene = new THREE.Scene();
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+scene.add(new THREE.DirectionalLight(0xffffff, 1.5).translateX(-1).translateY(2).translateZ(2));
+
+window.cena = scene;
+window.pronto = false;
+
+new GLTFLoader().load('../' + (q.get('file') || 'boto.glb'), (g) => {
+  const src = g.scene.getObjectByProperty('type', 'Mesh');
+  let geo = src.geometry;
+  if (q.get('flat') !== '0') { geo = geo.index ? geo.toNonIndexed() : geo; }
+  geo.computeVertexNormals();
+  const mat = q.get('mode') === 'lambert'
+    ? new THREE.MeshStandardMaterial({ color: 0xd8d8d8, metalness: 0.2, roughness: 0.5, flatShading: true })
+    : new THREE.MeshNormalMaterial({ flatShading: true });
+  const mesh = new THREE.Mesh(geo, mat);
+  scene.add(mesh);
+  window.malha = mesh;
+
+  const vistas = (q.get('views') || 'left,front,top,q').split(',');
+  const cols = vistas.length > 2 ? 2 : vistas.length, rows = Math.ceil(vistas.length / cols);
+  const cw = W / cols, ch = H / rows;
+  const zoom = parseFloat(q.get('zoom') || '1');
+  const cx = parseFloat(q.get('cx') || '0'), cy = parseFloat(q.get('cy') || '0');
+  vistas.forEach((v, i) => {
+    const a = cw / ch, s = 1.1 / zoom;
+    const cam = new THREE.OrthographicCamera(-s * a, s * a, s, -s, 0.01, 20);
+    const pos = { left: [0, 0, 5], right: [0, 0, -5], front: [-5, 0, 0], back: [5, 0, 0], top: [0, 5, 0], bottom: [0, -5, 0], q: [-3, 1.5, 3.5] }[v];
+    cam.position.set(pos[0] + cx, pos[1] + cy, pos[2]);
+    if (v === 'top' || v === 'bottom') cam.up.set(-1, 0, 0);
+    cam.lookAt(cx, cy, 0);
+    const x = (i % cols) * cw, y = H - (Math.floor(i / cols) + 1) * ch;
+    renderer.setViewport(x, y, cw, ch);
+    renderer.setScissor(x, y, cw, ch);
+    renderer.render(scene, cam);
+  });
+  window.pronto = true;
+});
+</script>
+</body>
+</html>
