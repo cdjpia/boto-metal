@@ -123,9 +123,9 @@
   }
 
   /* ---------------------------------------------------------------- painel
-     Encaixado ao lado do boto quando cabe (direita em frame deitado, embaixo em
-     frame em pe). Se encostar a menos de 10px do giro do boto, vira o botao
-     "Adjustments" e so abre sob demanda (ai pode cobrir o boto). */
+     Sempre guardado no botao "Adjustments"; o boto fica sempre no centro. Aberto,
+     o painel entra pela lateral direita em frame deitado (desktop, tablet) e
+     sobe por baixo em frame em pe (celular) - ai pode cobrir o boto. */
   #painel {
     position: fixed;
     background: var(--surface);
@@ -134,57 +134,55 @@
     display: grid;
     gap: 16px;
     grid-template-areas: "topo" "brilho" "giro" "fundo";
-    max-height: calc(100% - 2 * var(--margem));
     overflow-y: auto;
     overscroll-behavior: contain;
+    visibility: hidden; opacity: 0;
+    transition: opacity .2s ease, transform .2s ease, visibility 0s linear .2s;
   }
+  body.aberto #painel {
+    visibility: visible; opacity: 1;
+    transition: opacity .2s ease, transform .2s ease;
+  }
+  /* deitado: coluna na lateral direita, centrada na vertical, sem cobrir o botao */
   body.deitado #painel {
     right: var(--margem); top: 50%;
-    transform: translateY(-50%);
-    width: 244px;
+    width: 260px;
+    max-height: calc(100% - 2 * (var(--margem) + 48px));
+    transform: translate(16px, -50%);
   }
+  body.deitado.aberto #painel { transform: translate(0, -50%); }
+  /* em pe: folha de baixo, largura toda, logo acima do botao */
   body:not(.deitado) #painel {
-    left: 50%; bottom: var(--margem);
-    transform: translateX(-50%);
-    width: min(420px, calc(100% - 2 * var(--margem)));
+    left: var(--margem); right: var(--margem);
+    bottom: calc(var(--margem) + 48px);
+    max-height: calc(100% - 2 * var(--margem) - 48px);
     padding: 14px;
     gap: 12px 16px;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     grid-template-areas: "topo topo" "brilho fundo" "giro giro";
+    transform: translateY(16px);
   }
-  .topo { grid-area: topo; display: none; align-items: center; justify-content: space-between; }
+  body:not(.deitado).aberto #painel { transform: none; }
+  .topo { grid-area: topo; display: flex; align-items: center; justify-content: space-between; }
   .topo h2 { margin: 0; font-size: 14px; font-weight: 700; }
   .s-brilho { grid-area: brilho; }
   .s-giro { grid-area: giro; }
   .s-fundo { grid-area: fundo; }
 
-  /* recolhido: painel so aparece aberto, ancorado no canto do botao */
-  body.recolhido #painel {
-    left: auto; top: auto; transform: none;
-    right: var(--margem); bottom: calc(var(--margem) + 48px);
-    width: min(300px, calc(100% - 2 * var(--margem)));
-    max-height: calc(100% - 2 * var(--margem) - 48px);
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "topo" "brilho" "giro" "fundo";
-    visibility: hidden; opacity: 0;
-    transition: opacity .18s ease, visibility 0s linear .18s;
-  }
-  body.recolhido.aberto #painel { visibility: visible; opacity: 1; transition: opacity .18s ease; }
-  body.recolhido .topo { display: flex; }
-
+  /* botao: canto inferior direito no desktop, centro embaixo no celular */
   #ajustes {
     position: fixed; right: var(--margem); bottom: var(--margem);
     height: 38px; padding: 0 14px 0 12px;
-    display: none; align-items: center; gap: 8px;
+    display: flex; align-items: center; gap: 8px;
     background: var(--surface); border: 1px solid var(--pink-100);
     color: var(--pink-600); font-weight: 700; font-size: 12.5px;
     cursor: pointer;
     transition: background .15s ease, color .15s ease;
   }
+  body:not(.deitado) #ajustes { right: auto; left: 50%; transform: translateX(-50%); }
   #ajustes svg { width: 16px; height: 16px; }
   #ajustes:hover { background: var(--pink-50); }
-  body.recolhido #ajustes { display: flex; }
-  body.recolhido.aberto #ajustes { background: var(--grad); color: #fff; border-color: transparent; }
+  body.aberto #ajustes { background: var(--grad); color: #fff; border-color: transparent; }
   body.sem-ui #painel, body.sem-ui #ajustes { display: none !important; }
 
   .icone {

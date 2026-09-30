@@ -1,7 +1,7 @@
 // Widget do boto de chapa rebitada. Canvas no frame inteiro (sem proporcao fixa),
-// boto centrado e sempre do mesmo tamanho, girando livre em qualquer direcao
-// (arrastar, rolar ou setas). O painel encaixa ao lado do boto quando cabe; se
-// encostar a menos de 10px do giro dele, vira o botao "Adjustments".
+// boto sempre centrado e do mesmo tamanho, girando livre em qualquer direcao
+// (arrastar, rolar ou setas). Os ajustes ficam guardados no botao "Adjustments":
+// abrem na lateral no desktop e por baixo no celular.
 //
 // Modelo e texturas saem do tools/bake.py (public/). A dorsal nao existe na malha:
 // e extrudada aqui a partir de public/fin.json.
@@ -43,9 +43,8 @@ const estado = {
 
 // Esfera envolvente do boto na tela: diametro = PREENCHIMENTO x o lado menor do
 // frame. Como ele gira em qualquer eixo, e a esfera (nao a silhueta de agora) que
-// garante que nada sai do quadro - e e ela que o painel nao pode encostar.
+// garante que nada sai do quadro.
 const PREENCHIMENTO = 0.9;
-const FOLGA_PAINEL = 10;
 
 const P = {
   luzKey: 1.5, luzRim: 1.1,
@@ -111,33 +110,21 @@ function redimensionar() {
 }
 window.addEventListener('resize', redimensionar);
 
-// ---------------------------------------------------------------- painel: encaixado ou recolhido
+// ---------------------------------------------------------------- painel
 
-const painel = $('#painel');
+// O painel mora sempre no botao "Adjustments". Deitado (desktop, tablet) ele abre
+// na lateral; em pe (celular), por baixo - o CSS cuida disso pela classe.
 const ajustes = $('#ajustes');
 
 function arrumarPainel() {
-  const w = largura, h = altura;
-  document.body.classList.toggle('deitado', w >= h);
-  // mede o painel na posicao encaixada; se ficar a menos de FOLGA_PAINEL do circulo
-  // do boto, recolhe no botao
-  document.body.classList.remove('recolhido');
-  const r = PREENCHIMENTO * Math.min(w, h) / 2;
-  const cx = w / 2, cy = h / 2;
-  const q = painel.getBoundingClientRect();
-  const dx = Math.max(q.left - cx, 0, cx - q.right);
-  const dy = Math.max(q.top - cy, 0, cy - q.bottom);
-  const folga = Math.hypot(dx, dy) - r;
-  const cabe = folga >= FOLGA_PAINEL && q.height <= h - 2 * 16;
-  document.body.classList.toggle('recolhido', !cabe);
-  if (cabe) abrirPainel(false, false);
+  document.body.classList.toggle('deitado', largura >= altura);
 }
 
 function abrirPainel(abrir, focar = true) {
   document.body.classList.toggle('aberto', abrir);
   ajustes.setAttribute('aria-expanded', String(abrir));
   if (abrir) { esconderDica(); if (focar) $('#fechar').focus(); }
-  else if (focar && document.body.classList.contains('recolhido')) ajustes.focus();
+  else if (focar) ajustes.focus();
 }
 ajustes.addEventListener('click', () => abrirPainel(!document.body.classList.contains('aberto')));
 $('#fechar').addEventListener('click', () => abrirPainel(false));

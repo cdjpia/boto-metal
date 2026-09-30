@@ -12,13 +12,13 @@ Made by **Lucas Preginato** ([@cdjpia](https://github.com/cdjpia)). Code under t
 ## Widget (Framer)
 
 - Fills whatever frame it's placed in — no fixed ratio.
-- The boto stays centered and the same size at every angle (framed for its full
+- The boto is always centered and the same size at every angle (framed for its full
   rotation sweep).
 - **Rotate in any direction:** drag, scroll wheel / trackpad, or arrow keys.
   Auto-spin is on by default. An animated hand shows how the first time it's seen.
-- **Adjustments panel** (glow, auto-spin + speed, background): docked beside the
-  boto when there's room — right on wide frames, bottom on tall ones. When it
-  would come within 10 px of the boto, it collapses into an **Adjustments** button.
+- **Adjustments** button (glow, auto-spin + speed, background): the panel stays
+  tucked in it. Opened, it slides in on the right side on landscape frames
+  (desktop, tablet) and up from the bottom on portrait frames (phone).
 
 In Framer, insert an **Embed** (HTML) and paste:
 
